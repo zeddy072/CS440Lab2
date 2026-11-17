@@ -22,3 +22,23 @@ dev = [
 
 [tool.setuptools]
 py-modules = ["mini_coding_agent"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+exclude = [
+    ".git",
+    ".venv",
+    "cs440_project2",
+    "venv",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+

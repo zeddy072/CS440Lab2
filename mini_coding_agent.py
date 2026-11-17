@@ -10,7 +10,6 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 DOC_NAMES = ("AGENTS.md", "README.md", "pyproject.toml", "package.json")
 HELP_TEXT = "/help, /memory, /session, /reset, /skills, /exit"
 WELCOME_ART = (
@@ -353,12 +352,12 @@ class SkillRegistry:
 
 
 class SimilarityMatcher:
-    STOPWORDS = {
+    STOPWORDS = frozenset({
         "a", "an", "the", "and", "or", "in", "on", "at", "to", "for", "with",
         "is", "are", "was", "were", "it", "this", "that", "of", "by", "as",
         "be", "from", "can", "you", "please", "i", "my", "we", "our", "do",
         "me", "how", "what", "which", "there", "have", "has", "had", "check"
-    }
+    })
 
     def __init__(self, threshold=0.35):
         self.threshold = threshold
@@ -1344,7 +1343,7 @@ def main(argv=None):
         try:
             user_input = input("\nmini-coding-agent> ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("")
+            print()
             return 0
 
         if not user_input:

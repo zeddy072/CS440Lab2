@@ -7,6 +7,7 @@ __pycache__/
 # Virtual environments
 .venv/
 venv/
+cs440_project2/
 uv.lock
 
 # Packaging
