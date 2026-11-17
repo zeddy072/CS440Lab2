@@ -1,21 +1,14 @@
 import json
-import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
 
 from mini_coding_agent import (
     FakeModelClient,
     MiniAgent,
     SessionStore,
-    Skill,
-    SkillLogger,
-    SkillRegistry,
     SimilarityMatcher,
+    SkillRegistry,
     WorkspaceContext,
 )
 
@@ -45,6 +38,28 @@ tags:
     (skill_dir / "skill.md").write_text(content, encoding="utf-8")
 
 
+def create_code_refactor_skill(workspace_dir: Path):
+    skill_dir = workspace_dir / "skills" / "code-refactor"
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    content = """---
+name: code-refactor
+description: Refactor Python functions for readability and standards
+triggers:
+  - refactor code
+  - clean up function
+tags:
+  - refactor
+  - python
+---
+
+# Code Refactor Skill
+
+## Instructions
+1. Inspect code and refactor cleanly.
+"""
+    (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
+
+
 def build_test_agent(tmp_path, outputs, **kwargs):
     (tmp_path / "README.md").write_text("test workspace\n", encoding="utf-8")
     workspace = WorkspaceContext.build(tmp_path)
@@ -70,8 +85,9 @@ class TestAgentSkills(unittest.TestCase):
     def test_r1_skill_discovery(self):
         print("\n" + "=" * 65)
         print("TEST [R1]: Folder-Based Skill Discovery")
-        print("  Scanning directory: skill/pr-review/skill.md")
+        print("  Scanning directories: skill/pr-review/skill.md and skills/code-refactor/SKILL.md")
         create_pr_review_skill(self.root)
+        create_code_refactor_skill(self.root)
         registry = SkillRegistry(self.root)
         skills = registry.discover()
 
@@ -82,11 +98,14 @@ class TestAgentSkills(unittest.TestCase):
         self.assertIn("review pull request", skill.triggers)
         self.assertIn("Inspect git status", skill.instructions)
 
-        print(f"  -> Discovered skill: '{skill.name}'")
-        print(f"     Description: {skill.description}")
-        print(f"     Triggers: {skill.triggers}")
-        print(f"     Instructions: {len(skill.instructions)} characters loaded")
-        print("  [PASS] R1: Successfully discovered and parsed folder skill.")
+        self.assertIn("code-refactor", skills)
+        skill2 = skills["code-refactor"]
+        self.assertEqual(skill2.name, "code-refactor")
+        self.assertIn("Refactor Python functions", skill2.description)
+        self.assertIn("refactor code", skill2.triggers)
+
+        print(f"  -> Discovered skills: {[s.name for s in skills.values()]}")
+        print("  [PASS] R1: Successfully discovered and parsed both skill/ and skills/ format skills.")
 
     def test_r2_similarity_matching_trigger_and_fallback(self):
         print("\n" + "=" * 65)
@@ -186,7 +205,7 @@ class TestAgentSkills(unittest.TestCase):
         self.assertGreaterEqual(len(audit_events), 1)
         audit = audit_events[0]["content"]
 
-        print(f"  1. Session history audit event:")
+        print("  1. Session history audit event:")
         print(f"     Prompt:           '{audit['prompt']}'")
         print(f"     Matched:          {audit['similarity_check']['matched']}")
         print(f"     Top score:        {audit['similarity_check']['top_score']}")
@@ -207,7 +226,7 @@ class TestAgentSkills(unittest.TestCase):
         self.assertEqual(lines[0]["prompt"], user_prompt)
         self.assertEqual(lines[0]["executed_skill"]["name"], "pr-review")
 
-        print(f"  2. Persistent log file (.mini-coding-agent/skills.log):")
+        print("  2. Persistent log file (.mini-coding-agent/skills.log):")
         print(f"     Line count: {len(lines)}")
         print(f"     Sample line: {json.dumps(lines[0])[:80]}...")
         print("  [PASS] R5: Verified prompt, similarity check matrix, and executed skill logged to both targets.")
