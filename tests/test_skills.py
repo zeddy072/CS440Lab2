@@ -1,7 +1,12 @@
 import json
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from mini_coding_agent import (
     FakeModelClient,

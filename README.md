@@ -14,6 +14,7 @@ It is a minimal local agent loop with:
 - approval handling for risky tools
 - transcript and memory persistence
 - bounded delegation
+- modular agent skills and trigger matching
 
 The model backend is currently based on Ollama.
 
@@ -27,13 +28,13 @@ The model backend is currently based on Ollama.
 
 
 &nbsp;
-## Six Core Components
+## Seven Core Components
 
 <a href="https://magazine.sebastianraschka.com/p/components-of-a-coding-agent">
-  <img alt="Six core components of a coding agent" src="https://sebastianraschka.com/images/github/mini-coding-agent/six-components.webp" width="500px">
+  <img alt="Core components of a coding agent" src="https://sebastianraschka.com/images/github/mini-coding-agent/six-components.webp" width="500px">
 </a>
 
-This coding harness is organized around six practical building blocks:
+This coding harness is organized around seven practical building blocks:
 
 1. **Live repo context**  
    The agent collects stable workspace facts upfront, such as repo layout, instructions, and git state.
@@ -47,6 +48,8 @@ This coding harness is organized around six practical building blocks:
    The runtime keeps both a full durable transcript and a smaller working memory so sessions can be resumed while preserving important state via working memory.
 6. **Delegation and bounded subagents**  
    Scoped subtasks can be delegated to helper agents that inherit enough context to help (but operate within limits).
+7. **Agent skills**  
+   Modular folder-based workflows (`skill/<name>/skill.md`) that automatically activate based on prompt similarity or dynamic in-execution tool triggering.
 
 &nbsp;
 ## Requirements
@@ -194,6 +197,8 @@ being sent to the model as a normal task.
   prints the path to the current saved session JSON file
 - `/reset`
   clears the current session history and distilled memory but keeps you in the REPL
+- `/skills`
+  lists discovered agent skills and indicates which skill is currently active
 - `/exit`
   exits the interactive session
 - `/quit`
@@ -213,7 +218,7 @@ python mini_coding_agent.py --help
 ```
 
 CLI flags are passed before the agent starts. Use them to choose the workspace,
-model connection, resume behavior, approval mode, and generation limits.
+model connection, resume behavior, approval mode, generation limits, and skill behavior.
 
 Important flags:
 
@@ -237,6 +242,65 @@ Important flags:
   controls sampling randomness; default: `0.2`
 - `--top-p`
   controls nucleus sampling for generation; default: `0.9`
+- `--skills-dir`
+  directory to scan for agent skills; default: auto-detects `skill` or `skills` in workspace
+- `--skill-threshold`
+  similarity threshold to automatically trigger a skill; default: `0.35`
+- `--no-skills`
+  disables the agent skills component entirely
+
+&nbsp;
+## Agent Skills
+
+Agent Skills provide modular, folder-based capabilities that guide the model through specialized workflows.
+
+### Skill Folder Structure
+Skills reside in `skill/` or `skills/` within the repository root:
+
+```text
+skill/
+└── pr-review/
+    └── skill.md
+```
+
+Each `skill.md` includes YAML-style metadata frontmatter followed by markdown instructions:
+
+```markdown
+---
+name: pr-review
+description: Review pull requests, git diffs, and staged changes against code standards
+triggers:
+  - review pull request
+  - check pr
+  - review diff
+  - inspect git diff
+tags:
+  - review
+  - git
+---
+
+# Pull Request Review Skill
+
+## Instructions
+1. Inspect git status and modified files.
+2. Provide a structured review of bugs and quality.
+```
+
+### Triggering Pathways
+1. **Prompt-Driven (Automated):** When you submit a request, the agent computes term-frequency similarity between your prompt and all registered skills. If the score meets or exceeds `--skill-threshold` (default `0.35`), the skill is automatically activated.
+2. **In-Execution Tool (`use_skill`):** During turn execution, the model can dynamically invoke the safe `use_skill` tool (`<tool>{"name":"use_skill","args":{"name":"pr-review"}}</tool>`) to load skill instructions on demand.
+
+### Audit Logging
+Every prompt evaluation and skill execution is audited:
+- Logged to `.mini-coding-agent/skills.log` as structured JSONL.
+- Saved into the session transcript (`.mini-coding-agent/sessions/`) with role `"skill_audit"`.
+
+### Testing Skills
+Run the dedicated test suite:
+
+```bash
+python3 tests/test_skills.py
+```
 
 &nbsp;
 ## Example
